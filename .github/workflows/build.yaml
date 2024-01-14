@@ -1,0 +1,41 @@
+name: CI
+run-name: ${{ github.actor }} is CI on going
+on:
+  push:
+    branches:
+      - 'feature**'
+      - 'fix**'
+      - 'bug**'
+
+  workflow_dispatch:
+
+env:
+  POSTGRESQL_VERSION: 13.1
+  POSTGRESQL_DB: api-database
+  POSTGRESQL_USER: postgres
+  POSTGRESQL_PASSWORD: password
+  NODE_VERSION: 20.0.5
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:13.1
+        env:
+          POSTGRES_DB: ${{ env.POSTGRESQL_DB }}
+          POSTGRES_USER: ${{ env.POSTGRESQL_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRESQL_PASSWORD }}
+#          POSTGRES_DB: ${{ env.POSTGRESQL_DB }}
+#          POSTGRES_USER: ${{ env.POSTGRESQL_USER }}
+#          POSTGRES_PASSWORD: ${{ env.POSTGRESQL_PASSWORD }}
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm install -g bats
+      - run: bats -v
