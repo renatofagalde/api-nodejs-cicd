@@ -49,12 +49,17 @@ jobs:
         run: echo "::set-output name=BUILD_NUMBER::$(date '+%-d.%-m.%Y.%-H.%-M.%-S')"
 
       - uses: actions/checkout@v2
-      - name: docker login
-        env:
-          DOCKER_USER: ${{ env.DOCKER_HUB_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
-        run: |
-          docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
+#      - name: docker login
+#        env:
+#          DOCKER_USER: ${{ env.DOCKER_HUB_USERNAME }}
+#          DOCKER_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
+#        run: |
+#          docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
+      - name: Docker Login
+        uses: docker/login-action@f3364599c6aa293cdc2b8391b1b56d0c30e45c8a
+        with:
+          username: ${{ env.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
       - name: Build the Docker image
         run:  docker build . --file Dockerfile --tag renatofagalde/api-nodejs-cicd:${{steps.build-number.outputs.BUILD_NUMBER}}
