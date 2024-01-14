@@ -15,7 +15,7 @@ npm i --save-dev @types/morgan
 npm i express cors morgan
 ```
 
-nodemon -> hotdeploy 
+nodemon -> hotdeploy
 
 
 ## deploy in dockerhub
