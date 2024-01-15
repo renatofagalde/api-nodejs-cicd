@@ -15,6 +15,13 @@ env:
   POSTGRESQL_USER: postgres
   POSTGRESQL_PASSWORD: password
   NODE_VERSION: 20
+  DOCKER_HUB_USERNAME: renatofagalde
+  # AWS & Elastic Bean Stalk
+  AWS_REGION: us-east-1
+  EB_ENVIRONMENT_NAME: 'apinode-env'
+  EB_APPLICATION_NAME: 'api node'
+  EB_DEPLOYMENT_PACKAGE: ./elasticbeanstalk/docker-compose.yaml
+
 
 jobs:
   build:
@@ -26,9 +33,6 @@ jobs:
           POSTGRES_DB: ${{ env.POSTGRESQL_DB }}
           POSTGRES_USER: ${{ env.POSTGRESQL_USER }}
           POSTGRES_PASSWORD: ${{ env.POSTGRESQL_PASSWORD }}
-#          POSTGRES_DB: ${{ env.POSTGRESQL_DB }}
-#          POSTGRES_USER: ${{ env.POSTGRESQL_USER }}
-#          POSTGRES_PASSWORD: ${{ env.POSTGRESQL_PASSWORD }}
         ports:
           - 5432:5432
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5

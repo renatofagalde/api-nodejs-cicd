@@ -1,0 +1,82 @@
+name: CI
+run-name: ${{ github.actor }} is CI on going
+
+on:
+  push:
+    branches: [ develop ]
+
+  workflow_dispatch:
+
+env:
+  POSTGRESQL_VERSION: 13.1
+  POSTGRESQL_DB: api-database
+  POSTGRESQL_USER: postgres
+  POSTGRESQL_PASSWORD: password
+  NODE_VERSION: 20
+  DOCKER_HUB_USERNAME: renatofagalde
+  # AWS & Elastic Bean Stalk
+  AWS_REGION: us-east-1
+  EB_ENVIRONMENT_NAME: 'apinode-env'
+  EB_APPLICATION_NAME: 'api node'
+  EB_DEPLOYMENT_PACKAGE: ./elasticbeanstalk/docker-compose.yaml
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:13.1
+        env:
+          POSTGRES_DB: ${{ env.POSTGRESQL_DB }}
+          POSTGRES_USER: ${{ env.POSTGRESQL_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRESQL_PASSWORD }}
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm install -g bats
+      - run: bats -v
+      - name: Build Number
+        id: build-number
+        run: echo "::set-output name=BUILD_NUMBER::$(date '+%-d.%-m.%Y.%-H.%-M.%-S')"
+      - uses: actions/checkout@v2
+      - name: Docker Login
+        uses: docker/login-action@f3364599c6aa293cdc2b8391b1b56d0c30e45c8a
+        with:
+          username: ${{ env.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+      - name: Build the Docker image
+        run:  docker build . --file Dockerfile --tag renatofagalde/api-nodejs-cicd:${{steps.build-number.outputs.BUILD_NUMBER}}
+      - name: Docker Push
+        run: docker push renatofagalde/api-nodejs-cicd:${{steps.build-number.outputs.BUILD_NUMBER}}
+
+      - name: Update and commit app version in docker-compose.yaml
+        run: |
+          BUILD_NUMBER=${{steps.build-number.outputs.BUILD_NUMBER}}
+          echo -e "Current elasticbeanstalk/docker-compose.yaml\n$(cat ./elasticbeanstalk/docker-compose.yaml)"
+          sed -i -E 's_(renatofagalde/api-nodejs-cicd:)([^"]*)_\1'${BUILD_NUMBER}'_' ./elasticbeanstalk/docker-compose.yaml
+          echo -e "Current elasticbeanstalk/docker-compose.yaml\n$(cat ./elasticbeanstalk/docker-compose.yaml)"
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add ./elasticbeanstalk/docker-compose.yaml
+          git commit -m "new app version: ${BUILD_NUMBER}"
+          git push
+
+      - name: Beanstalk Deploy
+        uses: einaregilsson/beanstalk-deploy@ebe3476a4ce991d54336935e75e78dd9d86f9408
+        with:
+          aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          region: ${{ env.AWS_REGION }}
+          environment_name: ${{ env.EB_ENVIRONMENT_NAME }}
+          application_name: ${{ env.EB_APPLICATION_NAME }}
+          deployment_package: ${{ env.EB_DEPLOYMENT_PACKAGE }}
+          version_label: ${{ steps.build-number.outputs.BUILD_NUMBER }}
+          version_description: Version ${{steps.build-number.outputs.BUILD_NUMBER}} deployed via github actions ${{ github.sha }}
+          wait_for_deployment: 60
+        if: always()
